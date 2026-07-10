@@ -42,7 +42,7 @@ const NS_RESTLET_URL = `https://${NS_ACCOUNT_ID}.restlets.api.netsuite.com/app/s
 
 // Script IDs this server is permitted to invoke via the scriptId query param.
 // Add to this set if you deploy additional RESTlets you want exposed here.
-const ALLOWED_SCRIPT_IDS = new Set([NS_SCRIPT_ID]);
+const ALLOWED_SCRIPT_IDS = new Set([NS_SCRIPT_ID], '914');
 
 // ---------------------------------------------------------------------------
 // Middleware
