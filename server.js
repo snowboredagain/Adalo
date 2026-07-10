@@ -40,6 +40,10 @@ const NS_SCRIPT_ID   = process.env.NS_SCRIPT_ID  || '813';
 const NS_DEPLOY_ID   = process.env.NS_DEPLOY_ID  || '1';
 const NS_RESTLET_URL = `https://${NS_ACCOUNT_ID}.restlets.api.netsuite.com/app/site/hosting/restlet.nl`;
 
+// Script IDs this server is permitted to invoke via the scriptId query param.
+// Add to this set if you deploy additional RESTlets you want exposed here.
+const ALLOWED_SCRIPT_IDS = new Set([NS_SCRIPT_ID]);
+
 // ---------------------------------------------------------------------------
 // Middleware
 // ---------------------------------------------------------------------------
@@ -78,7 +82,7 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * GET /api/salesorders?customerId=123
+ * GET /api/salesorders?customerId=123&scriptId=813&deployId=1
  *
  * Fetches sales orders for a given NetSuite customer ID.
  *
@@ -87,21 +91,32 @@ app.get('/health', (req, res) => {
  *
  * Query params:
  *   customerId (required) — NetSuite internal customer ID
+ *   scriptId   (optional) — NetSuite RESTlet script ID, defaults to NS_SCRIPT_ID.
+ *                            Must be in ALLOWED_SCRIPT_IDS.
+ *   deployId   (optional) — NetSuite RESTlet deployment ID, defaults to NS_DEPLOY_ID
  *
  * Response:
  *   200 { ...sales order data from NetSuite }
  *   400 { error: 'customerId query parameter is required' }
+ *   400 { error: 'scriptId <id> is not permitted' }
  *   401 { error: 'Unauthorized' }
  *   502 { error: 'NetSuite request failed', detail: '...' }
  */
 app.get('/api/salesorders', requireApiKey, async (req, res) => {
-  const { customerId } = req.query;
+  const { customerId, scriptId, deployId } = req.query;
 
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
   }
 
-  const endpoint = `${NS_RESTLET_URL}?script=${NS_SCRIPT_ID}&deploy=${NS_DEPLOY_ID}&customerId=${encodeURIComponent(customerId)}`;
+  const script = scriptId || NS_SCRIPT_ID;
+  const deploy = deployId || NS_DEPLOY_ID;
+
+  if (!ALLOWED_SCRIPT_IDS.has(script)) {
+    return res.status(400).json({ error: `scriptId ${script} is not permitted` });
+  }
+
+  const endpoint = `${NS_RESTLET_URL}?script=${encodeURIComponent(script)}&deploy=${encodeURIComponent(deploy)}&customerId=${encodeURIComponent(customerId)}`;
 
   try {
     const data = await makeRequest('GET', endpoint);
