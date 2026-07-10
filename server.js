@@ -94,6 +94,9 @@ app.get('/health', (req, res) => {
  *   scriptId   (optional) — NetSuite RESTlet script ID, defaults to NS_SCRIPT_ID.
  *                            Must be in ALLOWED_SCRIPT_IDS.
  *   deployId   (optional) — NetSuite RESTlet deployment ID, defaults to NS_DEPLOY_ID
+ *   soNumber   (optional) — restrict results to a single sales order number (tranid);
+ *                            only honored by RESTlets that support it (e.g. open-sales-order-line-items.js)
+ *   limit      (optional) — max number of orders to consider; only honored by RESTlets that support it
  *
  * Response:
  *   200 { ...sales order data from NetSuite }
@@ -103,7 +106,7 @@ app.get('/health', (req, res) => {
  *   502 { error: 'NetSuite request failed', detail: '...' }
  */
 app.get('/api/salesorders', requireApiKey, async (req, res) => {
-  const { customerId, scriptId, deployId } = req.query;
+  const { customerId, scriptId, deployId, soNumber, limit } = req.query;
 
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
@@ -116,7 +119,11 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
     return res.status(400).json({ error: `scriptId ${script} is not permitted` });
   }
 
-  const endpoint = `${NS_RESTLET_URL}?script=${encodeURIComponent(script)}&deploy=${encodeURIComponent(deploy)}&customerId=${encodeURIComponent(customerId)}`;
+  const params = new URLSearchParams({ script, deploy, customerId });
+  if (soNumber) params.set('soNumber', soNumber);
+  if (limit)    params.set('limit', limit);
+
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
 
   try {
     const data = await makeRequest('GET', endpoint);
