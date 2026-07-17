@@ -106,8 +106,9 @@ app.get('/health', (req, res) => {
  *   502 { error: 'NetSuite request failed', detail: '...' }
  */
 app.get('/api/salesorders', requireApiKey, async (req, res) => {
-  const { customerId, scriptId, deployId, soNumber, limit } = req.query;
-
+  const { customerId: rawCustomerId, scriptId, deployId, soNumber, limit } = req.query;
+  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : rawCustomerId;  // strip comma formatting
+  
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
   }
