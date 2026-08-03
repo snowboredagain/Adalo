@@ -2,10 +2,10 @@
  * server.js
  * Express API server for NetSuite RESTlet integration.
  *
- * NetSuite Account: 4130572
+ * NetSuite Account: XXXXXX
  *
  * Endpoints:
- *   GET /api/salesorders?customerId=123   — fetch sales orders for a customer
+ *   GET /api/salesorders?customerId=###   — fetch sales orders for a customer
  *   GET /health                           — health check (no auth required)
  *
  * Authentication:
@@ -14,7 +14,7 @@
  *
  * Environment variables (set in Render dashboard):
  *   API_KEY             — your chosen API key for this server
- *   NS_ACCOUNT_ID       — 4130572
+ *   NS_ACCOUNT_ID       — your Netsuite Account ID
  *   NS_CONSUMER_KEY     — from NetSuite Integration record
  *   NS_CONSUMER_SECRET  — from NetSuite Integration record
  *   NS_TOKEN_ID         — from NetSuite Access Token record
@@ -42,7 +42,7 @@ const NS_RESTLET_URL = `https://${NS_ACCOUNT_ID}.restlets.api.netsuite.com/app/s
 
 // Script IDs this server is permitted to invoke via the scriptId query param.
 // Add to this set if you deploy additional RESTlets you want exposed here.
-const ALLOWED_SCRIPT_IDS = new Set([NS_SCRIPT_ID, '914']);
+const ALLOWED_SCRIPT_IDS = new Set([NS_SCRIPT_ID, '914','916']);
 
 // ---------------------------------------------------------------------------
 // Middleware
@@ -124,6 +124,31 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
   if (soNumber) params.set('soNumber', soNumber);
   if (limit)    params.set('limit', limit);
 
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+
+  try {
+    const data = await makeRequest('GET', endpoint);
+    return res.json(data);
+  } catch (err) {
+    console.error('NetSuite error:', err.message);
+    return res.status(502).json({
+      error:  'NetSuite request failed',
+      detail: err.message,
+    });
+  }
+});
+app.get('/api/customer', requireApiKey, async (req, res) => {
+  const { customerId: rawCustomerId, scriptId, deployId } = req.query;
+  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : rawCustomerId;
+
+  if (!customerId) {
+    return res.status(400).json({ error: 'customerId query parameter is required' });
+  }
+
+  const script = scriptId || 'YOUR_CUSTOMER_SCRIPT_ID';   // e.g. 'customscript_customer_restlet'
+  const deploy = deployId || 'YOUR_CUSTOMER_DEPLOY_ID';   // e.g. 'customdeploy_customer_restlet'
+
+  const params = new URLSearchParams({ script, deploy, customerId });
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
 
   try {
