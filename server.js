@@ -145,8 +145,8 @@ app.get('/api/customer', requireApiKey, async (req, res) => {
     return res.status(400).json({ error: 'customerId query parameter is required' });
   }
 
-  const script = scriptId || 'YOUR_CUSTOMER_SCRIPT_ID';   // e.g. 'customscript_customer_restlet'
-  const deploy = deployId || 'YOUR_CUSTOMER_DEPLOY_ID';   // e.g. 'customdeploy_customer_restlet'
+  const script = scriptId || '916';   // e.g. 'customscript_customer_restlet'
+  const deploy = deployId || '1';   // e.g. 'customdeploy_customer_restlet'
 
   const params = new URLSearchParams({ script, deploy, customerId });
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
