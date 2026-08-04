@@ -137,29 +137,100 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
     });
   }
 });
+const NS_SUITEQL_URL = `https://${process.env.NS_ACCOUNT_ID || '4130572'}.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql`;
+
 app.get('/api/customer', requireApiKey, async (req, res) => {
-  const { customerId: rawCustomerId, scriptId, deployId } = req.query;
-  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : rawCustomerId;
+  const { customerId: rawCustomerId } = req.query;
+  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : null;
 
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
   }
 
-  const script = scriptId || '916';   // e.g. 'customscript_customer_restlet'
-  const deploy = deployId || '1';   // e.g. 'customdeploy_customer_restlet'
-
-  const params = new URLSearchParams({ script, deploy, customerId });
-  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+  const query = `
+    SELECT
+      BUILTIN.DF( Transaction.Entity ) AS customerName,
+      SUM(
+        CASE WHEN ( TRUNC( SYSDATE ) - Transaction.DueDate ) < 1
+        THEN COALESCE( TransactionAccountingLine.AmountUnpaid, 0 ) - COALESCE( TransactionAccountingLine.PaymentAmountUnused, 0 )
+        ELSE 0 END
+      ) AS agingCurrent,
+      SUM(
+        CASE WHEN ( TRUNC( SYSDATE ) - Transaction.DueDate ) BETWEEN 1 AND 30
+        THEN COALESCE( TransactionAccountingLine.AmountUnpaid, 0 ) - COALESCE( TransactionAccountingLine.PaymentAmountUnused, 0 )
+        ELSE 0 END
+      ) AS aging1,
+      SUM(
+        CASE WHEN ( TRUNC( SYSDATE ) - Transaction.DueDate ) BETWEEN 31 AND 60
+        THEN COALESCE( TransactionAccountingLine.AmountUnpaid, 0 ) - COALESCE( TransactionAccountingLine.PaymentAmountUnused, 0 )
+        ELSE 0 END
+      ) AS aging2,
+      SUM(
+        CASE WHEN ( TRUNC( SYSDATE ) - Transaction.DueDate ) BETWEEN 61 AND 90
+        THEN COALESCE( TransactionAccountingLine.AmountUnpaid, 0 ) - COALESCE( TransactionAccountingLine.PaymentAmountUnused, 0 )
+        ELSE 0 END
+      ) AS aging3,
+      SUM(
+        CASE WHEN ( TRUNC( SYSDATE ) - Transaction.DueDate ) > 90
+        THEN COALESCE( TransactionAccountingLine.AmountUnpaid, 0 ) - COALESCE( TransactionAccountingLine.PaymentAmountUnused, 0 )
+        ELSE 0 END
+      ) AS aging4,
+      SUM(
+        COALESCE( TransactionAccountingLine.AmountUnpaid, 0 ) - COALESCE( TransactionAccountingLine.PaymentAmountUnused, 0 )
+      ) AS total
+    FROM
+      Transaction
+      INNER JOIN TransactionAccountingLine ON
+        ( TransactionAccountingLine.Transaction = Transaction.ID )
+      INNER JOIN Customer ON
+        ( Customer.ID = Transaction.Entity )
+    WHERE
+      ( Transaction.Entity = ${customerId} )
+      AND ( Transaction.Posting = 'T' )
+      AND ( Transaction.Voided = 'F' )
+      AND (
+        ( TransactionAccountingLine.AmountUnpaid <> 0 )
+        OR ( TransactionAccountingLine.PaymentAmountUnused <> 0 )
+      )
+    GROUP BY
+      BUILTIN.DF( Transaction.Entity )
+  `;
 
   try {
-    const data = await makeRequest('GET', endpoint);
-    return res.json(data);
-  } catch (err) {
-    console.error('NetSuite error:', err.message);
-    return res.status(502).json({
-      error:  'NetSuite request failed',
-      detail: err.message,
+    const data = await makeRequest('POST', NS_SUITEQL_URL, { q: query });
+
+    const row = data.items && data.items[0];
+    if (!row) {
+      return res.json({
+        customer: [ {
+          customerId,
+          companyName:  '',
+          agingCurrent: 0,
+          aging1:       0,
+          aging2:       0,
+          aging3:       0,
+          aging4:       0,
+          total:        0,
+        } ]
+      });
+    }
+
+    return res.json({
+      customer: [ {
+        customerId,
+        companyName:  row.customername  || '',
+        agingCurrent: parseFloat(row.agingcurrent) || 0,
+        aging1:       parseFloat(row.aging1)       || 0,
+        aging2:       parseFloat(row.aging2)       || 0,
+        aging3:       parseFloat(row.aging3)       || 0,
+        aging4:       parseFloat(row.aging4)       || 0,
+        total:        parseFloat(row.total)        || 0,
+      } ]
     });
+
+  } catch (err) {
+    console.error('SuiteQL error:', err.message);
+    return res.status(502).json({ error: 'SuiteQL request failed', detail: err.message });
   }
 });
 
