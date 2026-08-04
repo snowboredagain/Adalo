@@ -197,7 +197,12 @@ app.get('/api/customer', requireApiKey, async (req, res) => {
   `;
 
   try {
-    const data = await makeRequest('POST', NS_SUITEQL_URL, { q: query });
+    const data = await makeRequest(
+        'POST',
+        NS_SUITEQL_URL,
+        { q: query },
+        { 'Prefer': 'transient' }
+      );
 
     const row = data.items && data.items[0];
     if (!row) {
