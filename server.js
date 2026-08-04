@@ -137,68 +137,26 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
     });
   }
 });
-const NS_SUITEQL_URL = `https://${process.env.NS_ACCOUNT_ID || '4130572'}.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql`;
-
 app.get('/api/customer', requireApiKey, async (req, res) => {
-  const { customerId: rawCustomerId } = req.query;
+  const { customerId: rawCustomerId, scriptId, deployId } = req.query;
   const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : null;
 
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
   }
 
-  const query = `
-  SELECT
-    Transaction.ID,
-    Transaction.TranDate
-  FROM
-    Transaction
-  WHERE
-    Transaction.Entity = ${customerId}
-    AND Transaction.Posting = 'T'
-    AND Transaction.Voided = 'F'
-`;
+  const script = scriptId || process.env.NS_CUSTOMER_SCRIPT_ID;
+  const deploy = deployId || process.env.NS_CUSTOMER_DEPLOY_ID;
+
+  const params = new URLSearchParams({ script, deploy, customerId });
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
 
   try {
-    const data = await makeRequest(
-        'POST',
-        NS_SUITEQL_URL,
-        { q: query },
-        { 'Prefer': 'transient' }
-      );
-
-    const row = data.items && data.items[0];
-    if (!row) {
-      return res.json({
-        customer: [ {
-          customerId,
-          companyName:  '',
-          agingCurrent: 0,
-          aging1:       0,
-          aging2:       0,
-          aging3:       0,
-          aging4:       0,
-          total:        0,
-        } ]
-      });
-    }
-
-    return res.json({
-      customer: [ {
-        customerId,
-        companyName:  row.customername  || '',
-        agingCurrent: parseFloat(row.agingcurrent) || 0,
-        aging1:       parseFloat(row.aging1)       || 0,
-        aging2:       parseFloat(row.aging2)       || 0,
-        aging3:       parseFloat(row.aging3)       || 0,
-        aging4:       parseFloat(row.aging4)       || 0,
-        total:        parseFloat(row.total)        || 0,
-      } ]
-    });
-
+    const data = await makeRequest('GET', endpoint);
+    return res.json(data);
   } catch (err) {
-    console.error('SuiteQL error:', err.message);
-    return res.status(502).json({ error: 'SuiteQL request failed', detail: err.message });
+    console.error('NetSuite error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
   }
 });
 
