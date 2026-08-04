@@ -156,7 +156,7 @@ function generateAuthHeader(method, endpoint, extraParams = {}) {
  * @param {object} [body=null]  Request body for POST/PUT (will be JSON stringified)
  * @returns {Promise<object>}   Parsed JSON response
  */
-function makeRequest(method, endpoint, body = null) {
+function makeRequest(method, endpoint, body = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const authHeader = generateAuthHeader(method, endpoint);
     const parsedUrl  = new url.URL(endpoint);
@@ -172,6 +172,7 @@ function makeRequest(method, endpoint, body = null) {
         'Content-Type':  'application/json',
         'Accept':        'application/json',
         ...(payload && { 'Content-Length': Buffer.byteLength(payload) }),
+        ...extraHeaders,                          // merge any extra headers
       },
     };
 
