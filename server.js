@@ -291,6 +291,38 @@ app.get('/api/classes', requireApiKey, async (req, res) => {
   }
 });
 
+const NS_ITEMS_SCRIPT_ID = process.env.NS_ITEMS_SCRIPT_ID;
+const NS_ITEMS_DEPLOY_ID = process.env.NS_ITEMS_DEPLOY_ID || '1';
+
+app.get('/api/items', requireApiKey, async (req, res) => {
+  const { classId, page, pageSize, scriptId, deployId } = req.query;
+
+  if (!classId) {
+    return res.status(400).json({ error: 'classId query parameter is required' });
+  }
+
+  const script = scriptId || NS_ITEMS_SCRIPT_ID;
+  const deploy = deployId || NS_ITEMS_DEPLOY_ID;
+
+  const params = new URLSearchParams({
+    script,
+    deploy,
+    classId,
+    page:     page     || '1',
+    pageSize: pageSize || '50',
+  });
+
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+
+  try {
+    const data = await makeRequest('GET', endpoint);
+    return res.json(data);
+  } catch (err) {
+    console.error('Items error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
+  }
+});
+
 // Catch-all for undefined routes
 app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
