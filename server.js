@@ -47,6 +47,7 @@ const ALLOWED_SCRIPT_IDS = new Set([
   process.env.NS_SALESORDER_LINES_SCRIPT_ID,
   process.env.NS_CUSTOMER_INFO_SCRIPT_ID,
   process.env.NS_VERIFY_SCRIPT_ID,
+  process.env.NS_CLASSES_SCRIPT_ID,
 ]);
 
 // ---------------------------------------------------------------------------
