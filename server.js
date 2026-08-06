@@ -42,7 +42,12 @@ const NS_RESTLET_URL = `https://${NS_ACCOUNT_ID}.restlets.api.netsuite.com/app/s
 
 // Script IDs this server is permitted to invoke via the scriptId query param.
 // Add to this set if you deploy additional RESTlets you want exposed here.
-const ALLOWED_SCRIPT_IDS = new Set([NS_SCRIPT_ID, '914','916']);
+const ALLOWED_SCRIPT_IDS = new Set([
+  process.env.NS_SALESORDER_SCRIPT_ID,
+  process.env.NS_SALESORDER_LINES_SCRIPT_ID,
+  process.env.NS_CUSTOMER_INFO_SCRIPT_ID,
+  process.env.NS_VERIFY_SCRIPT_ID,
+]);
 
 // ---------------------------------------------------------------------------
 // Middleware
@@ -81,8 +86,115 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+const nodemailer = require('nodemailer');
+
+// In-memory lockout store: { entityId: { attempts, lockedUntil } }
+const verifyAttempts = {};
+const MAX_ATTEMPTS   = 5;
+const LOCKOUT_MS     = 60 * 60 * 1000; // 1 hour
+
+const NS_VERIFY_SCRIPT_ID = process.env.NS_VERIFY_SCRIPT_ID;
+const NS_VERIFY_DEPLOY_ID = process.env.NS_VERIFY_DEPLOY_ID || '1';
+
+const mailer = nodemailer.createTransport({
+  host:   'mail.iceguys.com',
+  port:   587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+app.get('/api/customer/verify', requireApiKey, async (req, res) => {
+  const { entityId, tranNumber, tranAmount } = req.query;
+
+  if (!entityId || !tranNumber || !tranAmount) {
+    return res.status(400).json({ error: 'entityId, tranNumber, and tranAmount are required' });
+  }
+
+  const key  = entityId.toLowerCase().trim();
+  const now  = Date.now();
+  const info = verifyAttempts[key] || { attempts: 0, lockedUntil: null };
+
+  // Check lockout
+  if (info.lockedUntil && now < info.lockedUntil) {
+    const minutesLeft = Math.ceil((info.lockedUntil - now) / 60000);
+    return res.status(429).json({
+      error:      'Too many failed attempts. Account verification locked.',
+      minutesLeft: minutesLeft,
+    });
+  }
+
+  // Reset if lockout has expired
+  if (info.lockedUntil && now >= info.lockedUntil) {
+    verifyAttempts[key] = { attempts: 0, lockedUntil: null };
+  }
+
+  // Call NetSuite RESTlet
+  const params   = new URLSearchParams({
+    script:      NS_VERIFY_SCRIPT_ID,
+    deploy:      NS_VERIFY_DEPLOY_ID,
+    entityId,
+    tranNumber,
+    tranAmount,
+  });
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+
+  let data;
+  try {
+    data = await makeRequest('GET', endpoint);
+  } catch (err) {
+    console.error('NetSuite verify error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
+  }
+
+  // Handle failed verification
+  if (!data.success) {
+    info.attempts += 1;
+
+    if (info.attempts >= MAX_ATTEMPTS) {
+      info.lockedUntil = now + LOCKOUT_MS;
+      verifyAttempts[key] = info;
+      return res.status(429).json({
+        error:      'Too many failed attempts. Account verification locked for 1 hour.',
+        minutesLeft: 60,
+      });
+    }
+
+    verifyAttempts[key] = info;
+    return res.status(401).json({
+      success:      false,
+      reason:       data.reason,
+      attemptsLeft: MAX_ATTEMPTS - info.attempts,
+    });
+  }
+
+  // Success — reset attempts
+  delete verifyAttempts[key];
+
+  // Send notification email
+  try {
+    await mailer.sendMail({
+      from:    process.env.SMTP_USER,
+      to:      'sales@iceguys.com',
+      subject: `New User Verified: ${data.companyName} (${data.entityId})`,
+      text:    `A new user has successfully verified their account.\n\nCompany: ${data.companyName}\nCustomer #: ${data.entityId}\nNetSuite ID: ${data.customerId}\n\nThey have been granted access to the customer portal.`,
+    });
+  } catch (mailErr) {
+    console.error('Email notification failed:', mailErr.message);
+    // Don't fail the request if email fails
+  }
+
+  return res.json({
+    success:    true,
+    customerId: data.customerId,
+    companyName: data.companyName,
+  });
+});
+
 /**
- * GET /api/salesorders?customerId=123&scriptId=813&deployId=1
+ * GET /api/salesorders?customerId=123&scriptId=123&deployId=1
  *
  * Fetches sales orders for a given NetSuite customer ID.
  *
