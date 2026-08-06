@@ -271,6 +271,24 @@ app.get('/api/customer', requireApiKey, async (req, res) => {
     return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
   }
 });
+const NS_CLASSES_SCRIPT_ID = process.env.NS_CLASSES_SCRIPT_ID;
+const NS_CLASSES_DEPLOY_ID = process.env.NS_CLASSES_DEPLOY_ID || '1';
+
+app.get('/api/classes', requireApiKey, async (req, res) => {
+  const params   = new URLSearchParams({
+    script: NS_CLASSES_SCRIPT_ID,
+    deploy: NS_CLASSES_DEPLOY_ID,
+  });
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+
+  try {
+    const data = await makeRequest('GET', endpoint);
+    return res.json(data);
+  } catch (err) {
+    console.error('Classes error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
+  }
+});
 
 // Catch-all for undefined routes
 app.use((req, res) => {
