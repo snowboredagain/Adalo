@@ -49,6 +49,7 @@ const ALLOWED_SCRIPT_IDS = new Set([
   process.env.NS_VERIFY_SCRIPT_ID,
   process.env.NS_CLASSES_SCRIPT_ID,
   process.env.NS_ITEMS_SCRIPT_ID,
+  process.env.NS_AVAILABILITY_SCRIPT_ID,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -327,6 +328,37 @@ app.get('/api/items', requireApiKey, async (req, res) => {
 // Catch-all for undefined routes
 app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
+});
+
+const NS_AVAILABILITY_SCRIPT_ID = process.env.NS_AVAILABILITY_SCRIPT_ID;
+const NS_AVAILABILITY_DEPLOY_ID = process.env.NS_AVAILABILITY_DEPLOY_ID || '1';
+
+app.get('/api/items/availability', requireApiKey, async (req, res) => {
+  const { itemId, locationId, scriptId, deployId } = req.query;
+
+  if (!itemId || !locationId) {
+    return res.status(400).json({ error: 'itemId and locationId are required' });
+  }
+
+  const script = scriptId || NS_AVAILABILITY_SCRIPT_ID;
+  const deploy = deployId || NS_AVAILABILITY_DEPLOY_ID;
+
+  const params = new URLSearchParams({
+    script,
+    deploy,
+    itemId,
+    locationId,
+  });
+
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+
+  try {
+    const data = await makeRequest('GET', endpoint);
+    return res.json(data);
+  } catch (err) {
+    console.error('Availability error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
+  }
 });
 
 // ---------------------------------------------------------------------------
