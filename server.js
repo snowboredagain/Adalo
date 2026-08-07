@@ -334,22 +334,16 @@ const NS_AVAILABILITY_SCRIPT_ID = process.env.NS_AVAILABILITY_SCRIPT_ID;
 const NS_AVAILABILITY_DEPLOY_ID = process.env.NS_AVAILABILITY_DEPLOY_ID || '1';
 
 app.get('/api/items/availability', requireApiKey, async (req, res) => {
-  const { itemId, locationId, scriptId, deployId } = req.query;
+  const { itemId, scriptId, deployId } = req.query;
 
-  if (!itemId || !locationId) {
-    return res.status(400).json({ error: 'itemId and locationId are required' });
+  if (!itemId) {
+    return res.status(400).json({ error: 'itemId is required' });
   }
 
   const script = scriptId || NS_AVAILABILITY_SCRIPT_ID;
   const deploy = deployId || NS_AVAILABILITY_DEPLOY_ID;
 
-  const params = new URLSearchParams({
-    script,
-    deploy,
-    itemId,
-    locationId,
-  });
-
+  const params = new URLSearchParams({ script, deploy, itemId });
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
 
   try {
