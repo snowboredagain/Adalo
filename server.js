@@ -50,6 +50,7 @@ const ALLOWED_SCRIPT_IDS = new Set([
   process.env.NS_CLASSES_SCRIPT_ID,
   process.env.NS_ITEMS_SCRIPT_ID,
   process.env.NS_AVAILABILITY_SCRIPT_ID,
+  process.env.NS_PRICE_SCRIPT_ID,
 ]);
 
 // ---------------------------------------------------------------------------
