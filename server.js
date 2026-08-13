@@ -318,6 +318,38 @@ app.get('/api/items/availability', requireApiKey, async (req, res) => {
   }
 });
 
+const NS_PRICE_SCRIPT_ID = process.env.NS_PRICE_SCRIPT_ID;
+const NS_PRICE_DEPLOY_ID = process.env.NS_PRICE_DEPLOY_ID || '1';
+
+app.get('/api/items/price', requireApiKey, async (req, res) => {
+  const { customerId: rawCustomerId, itemId, scriptId, deployId } = req.query;
+  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : null;
+
+  if (!customerId || !itemId) {
+    return res.status(400).json({ error: 'customerId and itemId are required' });
+  }
+
+  const script = scriptId || NS_PRICE_SCRIPT_ID;
+  const deploy = deployId || NS_PRICE_DEPLOY_ID;
+
+  const params = new URLSearchParams({
+    script,
+    deploy,
+    customerId,
+    itemId,
+  });
+
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+
+  try {
+    const data = await makeRequest('GET', endpoint);
+    return res.json(data);
+  } catch (err) {
+    console.error('Pricing error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
+  }
+});
+
 const NS_ITEMS_SCRIPT_ID = process.env.NS_ITEMS_SCRIPT_ID;
 const NS_ITEMS_DEPLOY_ID = process.env.NS_ITEMS_DEPLOY_ID || '1';
 
