@@ -51,6 +51,7 @@ const ALLOWED_SCRIPT_IDS = new Set([
   process.env.NS_ITEMS_SCRIPT_ID,
   process.env.NS_AVAILABILITY_SCRIPT_ID,
   process.env.NS_PRICE_SCRIPT_ID,
+  process.env.NS_ORDER_SCRIPT_ID,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -379,6 +380,52 @@ app.get('/api/items', requireApiKey, async (req, res) => {
     return res.json(data);
   } catch (err) {
     console.error('Items error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
+  }
+});
+
+const NS_ORDER_SCRIPT_ID = process.env.NS_ORDER_SCRIPT_ID;
+const NS_ORDER_DEPLOY_ID = process.env.NS_ORDER_DEPLOY_ID || '1';
+
+app.post('/api/order/create', requireApiKey, async (req, res) => {
+  const {
+    customerId,
+    customerEmail,
+    locationId,
+    memo,
+    otherrefnum,
+    isWarranty,
+    model,
+    serial,
+    items,
+    scriptId,
+    deployId,
+  } = req.body;
+
+  if (!customerId || !items) {
+    return res.status(400).json({ error: 'customerId and items are required' });
+  }
+
+  const script = scriptId || NS_ORDER_SCRIPT_ID;
+  const deploy = deployId || NS_ORDER_DEPLOY_ID;
+
+  const params = new URLSearchParams({ script, deploy });
+  const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+
+  try {
+    const data = await makeRequest('POST', endpoint, {
+      customerId,
+      customerEmail,
+      memo:        memo        || '',
+      otherrefnum: otherrefnum || '',
+      isWarranty:  isWarranty  || 'false',
+      model:       model       || '',
+      serial:      serial      || '',
+      items:       typeof items === 'string' ? items : JSON.stringify(items),
+    });
+    return res.json(data);
+  } catch (err) {
+    console.error('Order create error:', err.message);
     return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
   }
 });
