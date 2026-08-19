@@ -222,7 +222,9 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
  */
 app.get('/api/salesorders', requireApiKey, async (req, res) => {
   const { customerId: rawCustomerId, scriptId, deployId, soNumber, limit } = req.query;
-  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : rawCustomerId;  // strip comma formatting
+  const customerId = rawCustomerId 
+    ? rawCustomerId.replace(/,/g, '').replace('NSID', '') 
+    : rawCustomerId;
   
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
@@ -254,7 +256,9 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
 });
 app.get('/api/customer', requireApiKey, async (req, res) => {
   const { customerId: rawCustomerId, scriptId, deployId } = req.query;
-  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : null;
+  const customerId = rawCustomerId 
+    ? rawCustomerId.replace(/,/g, '').replace('NSID', '') 
+    : rawCustomerId;
 
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
