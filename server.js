@@ -113,7 +113,6 @@ const mailer = nodemailer.createTransport({
 
 app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   const { entityId, tranNumber, tranAmount } = req.query;
-
   if (!entityId || !tranNumber || !tranAmount) {
     return res.status(400).json({ error: 'entityId, tranNumber, and tranAmount are required' });
   }
@@ -126,7 +125,7 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   if (info.lockedUntil && now < info.lockedUntil) {
     const minutesLeft = Math.ceil((info.lockedUntil - now) / 60000);
     return res.status(429).json({
-      error:      'Too many failed attempts. Account verification locked.',
+      error:       'Too many failed attempts. Account verification locked.',
       minutesLeft: minutesLeft,
     });
   }
@@ -137,9 +136,9 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   }
 
   // Call NetSuite RESTlet
-  const params   = new URLSearchParams({
-    script:      NS_VERIFY_SCRIPT_ID,
-    deploy:      NS_VERIFY_DEPLOY_ID,
+  const params = new URLSearchParams({
+    script:    NS_VERIFY_SCRIPT_ID,
+    deploy:    NS_VERIFY_DEPLOY_ID,
     entityId,
     tranNumber,
     tranAmount,
@@ -159,16 +158,16 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
     info.attempts += 1;
 
     if (info.attempts >= MAX_ATTEMPTS) {
-      info.lockedUntil = now + LOCKOUT_MS;
+      info.lockedUntil    = now + LOCKOUT_MS;
       verifyAttempts[key] = info;
       return res.status(429).json({
-        error:      'Too many failed attempts. Account verification locked for 1 hour.',
+        error:       'Too many failed attempts. Account verification locked for 1 hour.',
         minutesLeft: 60,
       });
     }
 
     verifyAttempts[key] = info;
-    return res.status(401).json({      
+    return res.status(401).json({
       success:      false,
       reason:       data.reason,
       attemptsLeft: MAX_ATTEMPTS - info.attempts,
@@ -178,25 +177,21 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   // Success — reset attempts
   delete verifyAttempts[key];
 
-      // Send notification email asynchronously — don't await
-    mailer.sendMail({
-      from:    process.env.SMTP_USER,
-      to:      'sales@iceguys.com',
-      subject: `New User Verified: ${data.companyName} (${data.entityId})`,
-      text:    `A new user has successfully verified their account.\n\nCompany: ${data.companyName}\nCustomer #: ${data.entityId}\nNetSuite ID: ${data.customerId}\n\nThey have been granted access to the customer portal.`,
-    }).catch(mailErr => console.error('Email notification failed:', mailErr.message));
+  // Send notification email asynchronously — don't await
+  mailer.sendMail({
+    from:    process.env.SMTP_USER,
+    to:      'sales@iceguys.com',
+    subject: `New User Verified: ${data.companyName} (${data.entityId})`,
+    text:    `A new user has successfully verified their account.\n\nCompany: ${data.companyName}\nCustomer #: ${data.entityId}\nNetSuite ID: ${data.customerId}\n\nThey have been granted access to the customer portal.`,
+  }).catch(mailErr => console.error('Email notification failed:', mailErr.message));
 
-    return res.json({
-      success:     true,
-      customerId:  data.customerId,
-      companyName: data.companyName,
-      hasTerms:    data.hasTerms,
-      requiresPO:  data.requiresPO,
-    });
-  } catch (err) {
-    console.error('NetSuite verify error:', err.message);
-    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
-  }
+  return res.json({
+    success:     true,
+    customerId:  data.customerId,
+    companyName: data.companyName,
+    hasTerms:    data.hasTerms,
+    requiresPO:  data.requiresPO,
+  });
 });
 
 /**
