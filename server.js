@@ -169,8 +169,9 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
 
     verifyAttempts[key] = info;
     return res.status(401).json({
-      success:      false,
-      reason:       data.reason,
+      ...data,
+    //  success:      false,
+    //  reason:       data.reason,
       attemptsLeft: MAX_ATTEMPTS - info.attempts,
     });
   }
