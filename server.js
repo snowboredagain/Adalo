@@ -178,22 +178,26 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   // Success — reset attempts
   delete verifyAttempts[key];
 
-  // Send notification email asynchronously — don't wait
-  mailer.sendMail({
-    from:    process.env.SMTP_USER,
-    to:      'sales@iceguys.com',
-    subject: `New User Verified: ${data.companyName} (${data.entityId})`,
-    text:    `A new user has successfully verified their account.\n\nCompany: ${data.companyName}\nCustomer #: ${data.entityId}\nNetSuite ID: ${data.customerId}\n\nThey have been granted access to the customer portal.`,
-  }).catch(mailErr => console.error('Email notification failed:', mailErr.message));
+      // Send notification email asynchronously — don't await
+    mailer.sendMail({
+      from:    process.env.SMTP_USER,
+      to:      'sales@iceguys.com',
+      subject: `New User Verified: ${data.companyName} (${data.entityId})`,
+      text:    `A new user has successfully verified their account.\n\nCompany: ${data.companyName}\nCustomer #: ${data.entityId}\nNetSuite ID: ${data.customerId}\n\nThey have been granted access to the customer portal.`,
+    }).catch(mailErr => console.error('Email notification failed:', mailErr.message));
 
-  // Return immediately without waiting for email
-  return res.json({
-    success:     true,
-    customerId:  data.customerId,
-    companyName: data.companyName,
-    hasTerms:    data.hasTerms,
-    requiresPO:  data.requiresPO,
-  });
+    return res.json({
+      success:     true,
+      customerId:  data.customerId,
+      companyName: data.companyName,
+      hasTerms:    data.hasTerms,
+      requiresPO:  data.requiresPO,
+    });
+  } catch (err) {
+    console.error('NetSuite verify error:', err.message);
+    return res.status(502).json({ error: 'NetSuite request failed', detail: err.message });
+  }
+});
 
 /**
  * GET /api/salesorders?customerId=123&scriptId=123&deployId=1
