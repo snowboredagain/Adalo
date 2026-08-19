@@ -103,8 +103,8 @@ const NS_VERIFY_DEPLOY_ID = process.env.NS_VERIFY_DEPLOY_ID || '1';
 
 const mailer = nodemailer.createTransport({
   host:   'mail.iceguys.com',
-  port:   587,
-  secure: false,
+  port:   465,
+  secure: true,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -178,25 +178,22 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   // Success — reset attempts
   delete verifyAttempts[key];
 
-  // Send notification email
-  try {
-    await mailer.sendMail({
-      from:    process.env.SMTP_USER,
-      to:      'sales@iceguys.com',
-      subject: `New User Verified: ${data.companyName} (${data.entityId})`,
-      text:    `A new user has successfully verified their account.\n\nCompany: ${data.companyName}\nCustomer #: ${data.entityId}\nNetSuite ID: ${data.customerId}\n\nThey have been granted access to the customer portal.`,
-    });
-  } catch (mailErr) {
-    console.error('Email notification failed:', mailErr.message);
-    // Don't fail the request if email fails
-  }
+  // Send notification email asynchronously — don't wait
+  mailer.sendMail({
+    from:    process.env.SMTP_USER,
+    to:      'sales@iceguys.com',
+    subject: `New User Verified: ${data.companyName} (${data.entityId})`,
+    text:    `A new user has successfully verified their account.\n\nCompany: ${data.companyName}\nCustomer #: ${data.entityId}\nNetSuite ID: ${data.customerId}\n\nThey have been granted access to the customer portal.`,
+  }).catch(mailErr => console.error('Email notification failed:', mailErr.message));
 
+  // Return immediately without waiting for email
   return res.json({
-    success:    true,
-    customerId: data.customerId,
+    success:     true,
+    customerId:  data.customerId,
     companyName: data.companyName,
+    hasTerms:    data.hasTerms,
+    requiresPO:  data.requiresPO,
   });
-});
 
 /**
  * GET /api/salesorders?customerId=123&scriptId=123&deployId=1
