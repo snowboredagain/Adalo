@@ -223,7 +223,12 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
 app.get('/api/salesorders', requireApiKey, async (req, res) => {
   const { customerId: rawCustomerId, scriptId, deployId, soNumber, limit } = req.query;
   const customerId = rawCustomerId 
-    ? String(rawCustomerId).replace(/,/g, '').replace('.00', '').replace('NSID', '').trim()
+    ? String(rawCustomerId)
+      .replace(/%2C/g, '')   // URL-encoded comma
+      .replace(/,/g, '')     // regular comma
+      .replace(/\.00$/, '')  // trailing .00
+      .replace('NSID', '')   // NSID prefix
+      .trim()
     : rawCustomerId;
   
   if (!customerId) {
@@ -257,9 +262,14 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
 app.get('/api/customer', requireApiKey, async (req, res) => {
   const { customerId: rawCustomerId, scriptId, deployId } = req.query;
   const customerId = rawCustomerId 
-    ? String(rawCustomerId).replace(/,/g, '').replace('.00', '').replace('NSID', '').trim()
+    ? String(rawCustomerId)
+      .replace(/%2C/g, '')   // URL-encoded comma
+      .replace(/,/g, '')     // regular comma
+      .replace(/\.00$/, '')  // trailing .00
+      .replace('NSID', '')   // NSID prefix
+      .trim()
     : rawCustomerId;
-
+  
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
   }
@@ -327,7 +337,14 @@ const NS_PRICE_DEPLOY_ID = process.env.NS_PRICE_DEPLOY_ID || '1';
 
 app.get('/api/items/price', requireApiKey, async (req, res) => {
   const { customerId: rawCustomerId, itemId, scriptId, deployId } = req.query;
-  const customerId = rawCustomerId ? rawCustomerId.replace(/,/g, '') : null;
+  const customerId = rawCustomerId 
+    ? String(rawCustomerId)
+      .replace(/%2C/g, '')   // URL-encoded comma
+      .replace(/,/g, '')     // regular comma
+      .replace(/\.00$/, '')  // trailing .00
+      .replace('NSID', '')   // NSID prefix
+      .trim()
+    : rawCustomerId;
 
   if (!customerId || !itemId) {
     return res.status(400).json({ error: 'customerId and itemId are required' });
