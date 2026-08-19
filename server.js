@@ -222,6 +222,10 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
  */
 app.get('/api/salesorders', requireApiKey, async (req, res) => {
   const { customerId: rawCustomerId, scriptId, deployId, soNumber, limit } = req.query;
+
+  console.log('RAW customerId received:', JSON.stringify(rawCustomerId));
+  console.log('Type:', typeof rawCustomerId);
+  
   const customerId = rawCustomerId 
     ? String(rawCustomerId)
       .replace(/%2C/g, '')   // URL-encoded comma
@@ -230,6 +234,8 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
       .replace('NSID', '')   // NSID prefix
       .trim()
     : rawCustomerId;
+  
+console.log('CLEAN customerId:', JSON.stringify(customerId));  
   
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
