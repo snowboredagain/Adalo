@@ -188,7 +188,7 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   return res.json({
     verification: [ {
       success:     true,
-      customerId:  data.customerId,
+      nsId:        data.customerId,    // renamed from customerId
       companyName: data.companyName,
       hasTerms:    data.hasTerms,
       requiresPO:  data.requiresPO,
