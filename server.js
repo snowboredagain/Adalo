@@ -186,11 +186,13 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
   }).catch(mailErr => console.error('Email notification failed:', mailErr.message));
 
   return res.json({
-    success:     true,
-    customerId:  data.customerId,
-    companyName: data.companyName,
-    hasTerms:    data.hasTerms,
-    requiresPO:  data.requiresPO,
+    verification: [ {
+      success:     true,
+      customerId:  data.customerId,
+      companyName: data.companyName,
+      hasTerms:    data.hasTerms,
+      requiresPO:  data.requiresPO,
+    } ]  
   });
 });
 
