@@ -298,10 +298,14 @@ const NS_CLASSES_SCRIPT_ID = process.env.NS_CLASSES_SCRIPT_ID;
 const NS_CLASSES_DEPLOY_ID = process.env.NS_CLASSES_DEPLOY_ID || '1';
 
 app.get('/api/classes', requireApiKey, async (req, res) => {
-  const params   = new URLSearchParams({
-    script: NS_CLASSES_SCRIPT_ID,
-    deploy: NS_CLASSES_DEPLOY_ID,
-  });
+  const { scriptId, deployId, level } = req.query;
+
+  const script = scriptId || NS_CLASSES_SCRIPT_ID;
+  const deploy = deployId || NS_CLASSES_DEPLOY_ID;
+
+  const params = new URLSearchParams({ script, deploy });
+  if (level) params.set('level', level);
+
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
 
   try {
