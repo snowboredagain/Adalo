@@ -298,16 +298,20 @@ const NS_CLASSES_SCRIPT_ID = process.env.NS_CLASSES_SCRIPT_ID;
 const NS_CLASSES_DEPLOY_ID = process.env.NS_CLASSES_DEPLOY_ID || '1';
 
 app.get('/api/classes', requireApiKey, async (req, res) => {
-  const { scriptId, deployId, level } = req.query;
+  const { scriptId, deployId, level, parentId } = req.query;
+  
+  console.log('Classes params:', JSON.stringify({ level, parentId }));
 
   const script = scriptId || NS_CLASSES_SCRIPT_ID;
   const deploy = deployId || NS_CLASSES_DEPLOY_ID;
 
   const params = new URLSearchParams({ script, deploy });
-  if (level) params.set('level', level);
+  if (level)    params.set('level',    level);
+  if (parentId) params.set('parentId', parentId);
+
+  console.log('Forwarding to NetSuite:', params.toString());
 
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
-
   try {
     const data = await makeRequest('GET', endpoint);
     return res.json(data);
