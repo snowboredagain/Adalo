@@ -222,9 +222,6 @@ app.get('/api/customer/verify', requireApiKey, async (req, res) => {
  */
 app.get('/api/salesorders', requireApiKey, async (req, res) => {
   const { customerId: rawCustomerId, scriptId, deployId, soNumber, limit } = req.query;
-
-  console.log('RAW customerId received:', JSON.stringify(rawCustomerId));
-  console.log('Type:', typeof rawCustomerId);
   
   const customerId = rawCustomerId 
     ? String(rawCustomerId)
@@ -234,8 +231,6 @@ app.get('/api/salesorders', requireApiKey, async (req, res) => {
       .replace('NSID', '')   // NSID prefix
       .trim()
     : rawCustomerId;
-  
-console.log('CLEAN customerId:', JSON.stringify(customerId));  
   
   if (!customerId) {
     return res.status(400).json({ error: 'customerId query parameter is required' });
@@ -299,17 +294,13 @@ const NS_CLASSES_DEPLOY_ID = process.env.NS_CLASSES_DEPLOY_ID || '1';
 
 app.get('/api/classes', requireApiKey, async (req, res) => {
   const { scriptId, deployId, level, parentId } = req.query;
-  
-  console.log('Classes params:', JSON.stringify({ level, parentId }));
-
+    
   const script = scriptId || NS_CLASSES_SCRIPT_ID;
   const deploy = deployId || NS_CLASSES_DEPLOY_ID;
 
   const params = new URLSearchParams({ script, deploy });
   if (level)    params.set('level',    level);
   if (parentId) params.set('parentId', parentId);
-
-  console.log('Forwarding to NetSuite:', params.toString());
 
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
   try {
