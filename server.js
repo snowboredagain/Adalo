@@ -386,6 +386,10 @@ app.get('/api/items', requireApiKey, async (req, res) => {
     return res.status(400).json({ error: 'classId query parameter is required' });
   }
 
+  if (search && search.trim().length < 3) {
+    return res.status(400).json({ error: 'Search term must be at least 3 characters' });
+  }
+  
   const script = scriptId || NS_ITEMS_SCRIPT_ID;
   const deploy = deployId || NS_ITEMS_DEPLOY_ID;
 
