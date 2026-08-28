@@ -380,7 +380,7 @@ const NS_ITEMS_SCRIPT_ID = process.env.NS_ITEMS_SCRIPT_ID;
 const NS_ITEMS_DEPLOY_ID = process.env.NS_ITEMS_DEPLOY_ID || '1';
 
 app.get('/api/items', requireApiKey, async (req, res) => {
-  const { classId, page, pageSize, scriptId, deployId } = req.query;
+  const { classId, page, pageSize, search, scriptId, deployId } = req.query;
 
   if (!classId) {
     return res.status(400).json({ error: 'classId query parameter is required' });
@@ -394,8 +394,10 @@ app.get('/api/items', requireApiKey, async (req, res) => {
     deploy,
     classId,
     page:     page     || '1',
-    pageSize: pageSize || '50',
+    pageSize: pageSize || '1000',
   });
+
+  if (search) params.set('search', search);
 
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
 
