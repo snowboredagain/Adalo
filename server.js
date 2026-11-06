@@ -59,6 +59,10 @@ const ALLOWED_SCRIPT_IDS = new Set([
 // ---------------------------------------------------------------------------
 app.use(express.json());
 
+// Use compression
+const compression = require('compression');
+app.use(compression());
+
 // Request logger
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -292,6 +296,18 @@ app.get('/api/customer', requireApiKey, async (req, res) => {
 const NS_CLASSES_SCRIPT_ID = process.env.NS_CLASSES_SCRIPT_ID;
 const NS_CLASSES_DEPLOY_ID = process.env.NS_CLASSES_DEPLOY_ID || '1';
 
+const cache = new Map();
+const getCached = (key) => {
+  const hit = cache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.data;
+  cache.delete(key);
+  return null;
+};
+const setCached = (key, data, ttlMs) => {
+  cache.set(key, { data, exp: Date.now() + ttlMs });
+  if (cache.size > 500) cache.delete(cache.keys().next().value);
+};
+
 app.get('/api/classes', requireApiKey, async (req, res) => {
   const { scriptId, deployId, level, parentId } = req.query;
     
@@ -303,8 +319,12 @@ app.get('/api/classes', requireApiKey, async (req, res) => {
   if (parentId) params.set('parentId', parentId);
 
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
+  const cacheKey = `classes:${level || ''}:${parentId || ''}`;
+  const cached = getCached(cacheKey);
+  if (cached) return res.json(cached);
   try {
     const data = await makeRequest('GET', endpoint);
+    setCached(cacheKey, data, 60 * 60 * 1000); // 1 hour
     return res.json(data);
   } catch (err) {
     console.error('Classes error:', err.message);
@@ -398,15 +418,20 @@ app.get('/api/items', requireApiKey, async (req, res) => {
     deploy,
     classId,
     page:     page     || '1',
-    pageSize: pageSize || '1000',
+    pageSize: pageSize || '100',
   });
 
   if (search) params.set('search', search);
 
   const endpoint = `${NS_RESTLET_URL}?${params.toString()}`;
-
+  
+  const cacheKey = `items:${classId}:${page || 1}:${pageSize || 100}:${(search || '').trim().toLowerCase()}`;
+  const cached = getCached(cacheKey);
+  if (cached) return res.json(cached);
+  
   try {
     const data = await makeRequest('GET', endpoint);
+    setCached(cacheKey, data, 10 * 60 * 1000); // 10 minutes
     return res.json(data);
   } catch (err) {
     console.error('Items error:', err.message);
