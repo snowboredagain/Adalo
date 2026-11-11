@@ -160,6 +160,7 @@ function makeRequest(method, endpoint, body = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const authHeader = generateAuthHeader(method, endpoint);
     const parsedUrl  = new url.URL(endpoint);
+    const startedAt  = Date.now();
 
     const payload = body ? JSON.stringify(body) : null;
 
@@ -172,20 +173,15 @@ function makeRequest(method, endpoint, body = null, extraHeaders = {}) {
         'Content-Type':  'application/json',
         'Accept':        'application/json',
         ...(payload && { 'Content-Length': Buffer.byteLength(payload) }),
-        ...extraHeaders,                          // merge any extra headers
+        ...extraHeaders,
       },
     };
-
-    console.log('\n--- Request ---');
-    console.log(`${method.toUpperCase()} ${endpoint}`);
-    console.log('Authorization:', authHeader);
 
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
-        console.log(`\n--- Response [${res.statusCode}] ---`);
-        console.log(data);
+        console.log(`NS ${method.toUpperCase()} script=${parsedUrl.searchParams.get('script')} -> ${res.statusCode} in ${Date.now() - startedAt}ms (${data.length} bytes)`);
         try {
           const parsed = JSON.parse(data);
           if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -194,9 +190,13 @@ function makeRequest(method, endpoint, body = null, extraHeaders = {}) {
             reject(new Error(`Request failed [${res.statusCode}]: ${JSON.stringify(parsed)}`));
           }
         } catch (e) {
-          reject(new Error(`Failed to parse response: ${data}`));
+          reject(new Error(`Failed to parse response: ${data.slice(0, 500)}`));
         }
       });
+    });
+
+    req.setTimeout(25000, () => {
+      req.destroy(new Error('NetSuite request timed out after 25s'));
     });
 
     req.on('error', reject);
